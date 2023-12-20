@@ -157,22 +157,19 @@ def get_train_data(dataset_name=None, seed=RANDOM_STATE):
 
 def clip_gradients(sample_gradients, C):
     # *-TODO: Clip gradients.
-    grad_norm = np.linalg.norm(sample_gradients, ord=2, axis=1)
-    clip_factor = np.maximum(1, grad_norm/C)
-    clip_gradients = sample_gradients / clip_factor[:, np.newaxis]
+    grad_norm = np.linalg.norm(sample_gradients, ord=2, axis=1) # 计算每个样本的梯度的2范数
+    clip_factor = np.maximum(1, grad_norm/C) # 计算clip因子
+    clip_gradients = sample_gradients / clip_factor[:, np.newaxis] # 梯度裁剪
     return clip_gradients
 
 
 def add_gaussian_noise_to_gradients(sample_gradients, epsilon, delta, C):
     # *-TODO: add gaussian noise to gradients.
-    gradients = np.sum(sample_gradients, axis=0)
+    gradients = np.mean(sample_gradients, axis=0) # 原始梯度
 
     std = C * np.sqrt(2 * np.log(1.25 / delta)) / epsilon # 上述梯度裁剪已经保证了C即为sensitivity的上界
-    noise = np.random.normal(loc=0.0, scale=std, size=gradients.shape)
-    noisy_gradients = gradients + noise
-
-    noisy_gradients = noisy_gradients / sample_gradients.shape[0]
-
+    noise = np.random.normal(loc=0.0, scale=std, size=gradients.shape) / sample_gradients.shape[0] # 高斯噪声除以样本数量
+    noisy_gradients = gradients + noise # 加噪声
     return noisy_gradients
 
 

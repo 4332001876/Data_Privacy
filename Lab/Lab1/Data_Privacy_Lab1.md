@@ -86,20 +86,16 @@ def clip_gradients(sample_gradients, C):
 ```python
 def add_gaussian_noise_to_gradients(sample_gradients, epsilon, delta, C):
     # *-TODO: add gaussian noise to gradients.
-    gradients = np.sum(sample_gradients, axis=0)
+    gradients = np.mean(sample_gradients, axis=0)
 
     std = C * np.sqrt(2 * np.log(1.25 / delta)) / epsilon # 上述梯度裁剪已经保证了C即为sensitivity的上界
-    noise = np.random.normal(loc=0.0, scale=std, size=gradients.shape)
+    noise = np.random.normal(loc=0.0, scale=std, size=gradients.shape) / sample_gradients.shape[0]
     noisy_gradients = gradients + noise
-
-    noisy_gradients = noisy_gradients / sample_gradients.shape[0]
-
     return noisy_gradients
 ```
 
-首先，将上一步得到的每个样本的梯度求和，得到总的梯度。
-然后以`epsilon, delta`以及敏感度`C`计算高斯噪声的标准差，生成高斯噪声并加到总的梯度上。
-最后除以样本数量（相当于转成梯度均值），得到最终的梯度。
+首先，将上一步得到的每个样本的梯度求平均得到未加噪的梯度。
+然后以`epsilon, delta`以及敏感度`C`计算高斯噪声的标准差，生成高斯噪声，除以样本数量来缩放后，加到原来的梯度上。
 
 
 ### 实验结果
@@ -235,25 +231,113 @@ def elgamal_decrypt(public_key, private_key, ciphertext):
 
 
 ### 测试三阶段时间开销
+对key_size为64、128、256、512、1024的密钥进行测试，重复次数分别为1000、100、10、3、1，每轮重复测试的结果取平均值作为最终结果。
 
-
+测试结果如下：
+| key_size | stage-1 time (ms) | stage-2 time (ms) | stage-3 time (ms) |
+| :------: | :---------------: | :---------------: | :---------------: |
+|    64    |       5.74        |       0.049       |       0.040       |
+|   128    |       36.93       |       0.132       |       0.095       |
+|   256    |      431.81       |       0.698       |       0.300       |
+|   512    |      6826.95      |       1.928       |       1.001       |
+|   1024   |     119515.77     |       9.002       |       5.000       |
 
 
 ### 验证 ElGamal 算法的随机性以及乘法同态性质
 
 #### 验证 ElGamal 算法的随机性
+对比同一明文加密多次的密文，验证其是否随机。
+
+我们以明文为123456，密钥长度为128，重复加密多次，得到的密文如下：
+
+<img src="./pic/cipher_randomness.png" width="100%" style="margin: 0 auto;">
+
+可以发现每次的密文都不一样，因此ElGamal算法具有随机性。
 
 
 #### 验证 ElGamal 算法的乘法同态性质
-对比乘法同态性质运算的时间开销，即 time(decrypt([a]*[b])) 和
-time(decrypt([a])*decrypt([b]))，并给出原因说明。
+对a=5和b=24在同一公私钥下加密，得到密文`[a], [b]`，
+
+分别计算`decrypt([a])*decrypt([b])`与`decrypt([a]*[b])`的结果（其中`[a]*[b]`是将二者的临时公钥在取模意义下相乘得到新的临时公钥，将二者的密文在取模意义下相乘得到新的密文），得到的结果均为120，则ElGamal算法的乘法同态性质得到验证。
+
+<img src="./pic/cipher_multi.png" width="80%" style="margin: 0 auto;">
 
 
+decrypt([a])*decrypt([b]) time cost:  0.00019402122497558594
+decrypt([a]*[b]) time cost:  0.00010100007057189941
 
+测试1000次取平均，得到`decrypt([a])*decrypt([b])`耗时为0.194ms，`decrypt([a]*[b])`耗时为0.101ms，`decrypt([a])*decrypt([b])`耗时约为`decrypt([a]*[b])`的两倍，这可能是因为`decrypt([a])*decrypt([b])`需要两次高开销的解密操作，而`decrypt([a]*[b])`仅需一次高开销的解密操作，因此存在两倍的耗时差。
+
+<img src="./pic/cipher_multi_time_cost.png" width="80%" style="margin: 0 auto;">
 
 
 ### 优化 ElGamal 算法加解密的时间开销
 
+#### 优化大素数与原根生成的算法
+
+原有的大素数与原根算法中，需要生成大素数p，并知道p-1的质因数列表，用以判断g是否为p的原根：
+
+原有的算法中，是先生成p，然后对p-1进行质因数分解，这将导致时间开销极端巨大，对于位数n复杂度为$O(2^{\frac{n}{2}})$。
+```python
+# generate an n-bit random prime number p
+p = sympy.randprime(2**(n_bit-1), 2**n_bit)
+
+# compute the prime factorization of p-1
+factors = sympy.factorint(p-1).keys()
+```
+
+我们可以对该算法改为：随机选取n-1位的素数q，直到满足p=2q+1也是素数，我们采纳这样的p，这样p-1的质因数分解结果就是2*q。该算法避免了质因数分解，因此时间开销大大降低。
+
+其实现如下：
+```python
+# 我们随机选取一个素数q，然后满足p=2q+1也是素数，这样p-1的质因数分解结果就是2*q
+finded = False
+while not finded:
+    q = sympy.randprime(2**(n_bit-2), 2**(n_bit-1)) # 生成一个n_bit-1位的素数q，这可以保证p位数是n_bit
+    p = 2 * q + 1
+    finded = sympy.isprime(p)
+    
+# compute the prime factorization of p-1
+factors = [2, q]
+```
+
+优化前后，第一阶段密钥生成的时间开销对比如下：
+| key_size | 优化前(ms) | 优化后(ms) |
+| :------: | :--------: | :--------: |
+|    64    |    7.97    |    5.74    |
+|   128    |  1868.80   |   36.93    |
+|   256    | 102292.40  |   431.81   |
+|   512    |  用时过长  |  6826.95   |
+|   1024   |  用时过长  | 119515.77  |
 
 
+#### 批量加密和解密
+我们可以利用同一对公私钥，对多个明文进行加密，或对多个密文进行解密，这样可以减少密钥生成的时间开销。
+
+
+```python
+def main_encrypt_batch(key_size, plaintext_list):
+    # generate keys
+    public_key, private_key = elgamal_key_generation(key_size)
+    ciphertext_list = []
+    for plaintext in plaintext_list:
+        # encrypt plaintext
+        ciphertext = elgamal_encrypt(public_key, plaintext)
+        ciphertext_list.append(ciphertext)
+    decrypted_text_list = []
+    for ciphertext in ciphertext_list:
+        # decrypt ciphertext
+        decrypted_text = elgamal_decrypt(public_key, private_key, ciphertext)
+        decrypted_text_list.append(decrypted_text)
+    return ciphertext_list, decrypted_text_list
+```
+
+令密文长度为1000，测得的平均每个密文用时如下：
+| key_size | 优化前(ms) | 优化后(ms) |
+| :------: | :--------: | :--------: |
+|    64    |    6.24    |   0.097    |
+|   128    |   47.52    |   0.350    |
+|   256    |   463.81   |   0.851    |
+
+可以看到，优化后的算法在密文长度为1000时，密钥生成的时间开销大幅降低。
 

@@ -1,6 +1,8 @@
 import random
+import time
 
 import sympy
+import matplotlib.pyplot as plt
 
 
 def is_primitive_root(g, p, factors):
@@ -83,7 +85,7 @@ def elgamal_decrypt(public_key, private_key, ciphertext):
     plaintext = (c2 * s_inverted) % p
     return plaintext
 
-if __name__ == "__main__":
+def main_interactive():
     # set key_size, such as 256, 1024...
     key_size = int(input("Please input the key size: "))
 
@@ -100,3 +102,123 @@ if __name__ == "__main__":
     # decrypt ciphertext
     decrypted_text = elgamal_decrypt(public_key, private_key, ciphertext)
     print("Decrypted Text:", decrypted_text)
+
+
+def main(key_size, plaintext):
+    # generate keys
+    public_key, private_key = elgamal_key_generation(key_size)
+    # encrypt plaintext
+    ciphertext = elgamal_encrypt(public_key, plaintext)
+    # decrypt ciphertext
+    decrypted_text = elgamal_decrypt(public_key, private_key, ciphertext)
+    return decrypted_text
+
+def main_encrypt_batch(key_size, plaintext_list):
+    # generate keys
+    public_key, private_key = elgamal_key_generation(key_size)
+    ciphertext_list = []
+    for plaintext in plaintext_list:
+        # encrypt plaintext
+        ciphertext = elgamal_encrypt(public_key, plaintext)
+        ciphertext_list.append(ciphertext)
+    decrypted_text_list = []
+    for ciphertext in ciphertext_list:
+        # decrypt ciphertext
+        decrypted_text = elgamal_decrypt(public_key, private_key, ciphertext)
+        decrypted_text_list.append(decrypted_text)
+    return ciphertext_list, decrypted_text_list
+
+def test_time():
+    test_rounds = {
+        64: 1000,
+        128: 100,
+        256: 10,
+        512: 3,
+        1024: 1
+    }
+    for key_size, rounds in test_rounds.items():
+        print("Key size: ", key_size)
+        # stage 1
+        start = time.time()
+        for i in range(rounds):
+            public_key, private_key = elgamal_key_generation(key_size)
+        end = time.time()
+        print("Stage 1 time cost: ", (end-start) / rounds)
+        # stage 2
+        start = time.time()
+        for i in range(rounds):
+            plaintext = 123456789+i
+            ciphertext = elgamal_encrypt(public_key, plaintext)
+        end = time.time()
+        print("Stage 2 time cost: ", (end-start) / rounds)
+        # stage 3
+        start = time.time()
+        for i in range(rounds):
+            decrypted_text = elgamal_decrypt(public_key, private_key, ciphertext)
+        end = time.time()
+        print("Stage 3 time cost: ", (end-start) / rounds)
+
+def test_time_batch():
+    test_rounds = {
+        64: 1000,
+        128: 1000,
+        256: 1000,
+    }
+    for key_size, rounds in test_rounds.items():
+        print("Key size: ", key_size)
+        start = time.time()
+        main_encrypt_batch(key_size, [123456]*rounds)
+        end = time.time()
+        print("new time cost: ", (end-start) / rounds)
+
+        start = time.time()
+        for i in range(rounds):
+            main(key_size, 123456)
+        end = time.time()
+        print("origin time cost: ", (end-start) / rounds)
+
+        
+        
+
+def test_randomness():
+    key_size = 128
+    ciphertext_list, _ = main_encrypt_batch(key_size, [123456]*100)
+    for item in ciphertext_list:
+        print(item)
+    
+def test_multiply_homomorphic(key_size):
+    # generate keys
+    public_key, private_key = elgamal_key_generation(key_size)
+    plain_factor1 = 24
+    plain_factor2 = 5
+    # encrypt plaintext
+    ciphertext1 = elgamal_encrypt(public_key, plain_factor1)
+    ciphertext2 = elgamal_encrypt(public_key, plain_factor2)
+    start = time.time()
+    for _ in range(1000):
+        factor1 = elgamal_decrypt(public_key, private_key, ciphertext1)
+        factor2 = elgamal_decrypt(public_key, private_key, ciphertext2)
+        test_product = factor1 * factor2
+    end = time.time()
+    print("decrypt([a])*decrypt([b]) time cost: ", (end-start) / 1000)
+
+    start = time.time()
+    for _ in range(1000):
+        cipher_product = ((ciphertext1[0]*ciphertext2[0]) % public_key[0], (ciphertext1[1] * ciphertext2[1]) % public_key[0])
+        product = elgamal_decrypt(public_key, private_key, cipher_product)
+    end = time.time()
+    print("decrypt([a]*[b]) time cost: ", (end-start) / 1000)
+
+    print("decrypt([a]): ", factor1)
+    print("decrypt([b]): ", factor2)
+    print("decrypt([a]*[b]): ", product)
+    print("decrypt([a])*decrypt([b]): ", factor1 * factor2)
+    print("decrypt([a])*decrypt([b]) == decrypt([a]*[b])? ", factor1 * factor2 == product)
+
+    # decrypt ciphertext
+    decrypted_text = elgamal_decrypt(public_key, private_key, ciphertext1)
+    return decrypted_text
+
+
+if __name__ == "__main__":
+    test_time_batch()
