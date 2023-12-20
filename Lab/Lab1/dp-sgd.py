@@ -116,12 +116,12 @@ class LogisticRegressionCustom:
         return np.round(probabilities)
 
 
-def get_train_data(dataset_name=None):
+def get_train_data(dataset_name=None, seed=RANDOM_STATE):
     if dataset_name is None:
         # Generate simulated data
-        np.random.seed(RANDOM_STATE) # 种子，保证结果可复现
+        np.random.seed(seed) # 种子，保证结果可复现
         X, y = make_classification(
-            n_samples=1000, n_features=20, n_classes=2, random_state=RANDOM_STATE
+            n_samples=1000, n_features=20, n_classes=2, random_state=seed
         )
         """
         生成一个随机的n类分类问题。
@@ -141,7 +141,7 @@ def get_train_data(dataset_name=None):
 
     # Split the dataset into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=RANDOM_STATE
+        X, y, test_size=0.2, random_state=seed
     )
 
     if LOG_LEVEL <= LogLevel.DEBUG:
@@ -176,8 +176,8 @@ def add_gaussian_noise_to_gradients(sample_gradients, epsilon, delta, C):
     return noisy_gradients
 
 
-def main(num_iterations = 100, epsilon = 1.0, delta = 1e-3):
-    np.random.seed(RANDOM_STATE) # 种子，保证结果可复现
+def main(num_iterations = 100, epsilon = 1.0, delta = 1e-3, seed = RANDOM_STATE):
+    np.random.seed(seed) # 种子，保证结果可复现
     # Prepare datasets.
     dataset_name = "cancer"
     X_train, X_test, y_train, y_test = get_train_data(dataset_name)
@@ -196,7 +196,7 @@ def main(num_iterations = 100, epsilon = 1.0, delta = 1e-3):
     dp_model.dp_fit(X_train, y_train, epsilon=epsilon, delta=delta, C=1)
     y_pred = dp_model.predict(X_test)
     dp_accuracy = accuracy_score(y_test, y_pred)
-    print("DP accuracy:", accuracy)
+    print("DP accuracy:", dp_accuracy)
 
     return accuracy, dp_accuracy
 
@@ -205,6 +205,94 @@ def exp():
     epsilon = 1.0
     delta = 1e-3
 
+    # ================exp_epsilon================
+    accuracy_list = []
+    dp_accuracy_list = []
+    new_epsilon_list = [0.1, 0.2, 0.5, 1, 2, 5, 10]
+    new_epsilon_label = ["%.1f"%i for i in new_epsilon_list]
+    for new_epsilon in new_epsilon_list:
+        temp_accuracy, temp_dp_accuracy = [], []
+        for i in range(10):
+            accuracy, dp_accuracy = main(num_iterations, new_epsilon, delta, seed=i)
+            temp_accuracy.append(accuracy)
+            temp_dp_accuracy.append(dp_accuracy)
+        accuracy_list.append(np.mean(temp_accuracy))
+        dp_accuracy_list.append(np.mean(temp_dp_accuracy))
+
+    fig,ax=plt.subplots(1,1)
+    plt.title("Model Accuracy at Different Epsilon",fontsize=24)#图标题,设置字体大小   
+ 
+    plt.xlabel('Epsilon', fontsize=18)#坐标轴标题   
+    plt.ylabel('Accuracy', fontsize=18)
+
+    ax.set_xticks(np.log(np.array(new_epsilon_list)), labels=new_epsilon_label)
+    ax.tick_params(labelsize=12)
+    plt.plot(np.log(new_epsilon_list), accuracy_list, c='tomato')
+    plt.plot(np.log(new_epsilon_list), dp_accuracy_list, c='blue')
+    plt.legend(['Normal', 'DP'], loc='lower right', fontsize=18)
+
+    plt.show()
+
+
+    # ================exp_delta================
+    accuracy_list = []
+    dp_accuracy_list = []
+    new_delta_list = [1e-0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+    new_delta_label = ["%.1e"%i for i in new_delta_list]
+    for new_delta in new_delta_list:
+        temp_accuracy, temp_dp_accuracy = [], []
+        for i in range(10):
+            accuracy, dp_accuracy = main(num_iterations, epsilon, new_delta, seed=i)
+            temp_accuracy.append(accuracy)
+            temp_dp_accuracy.append(dp_accuracy)
+        accuracy_list.append(np.mean(temp_accuracy))
+        dp_accuracy_list.append(np.mean(temp_dp_accuracy))
+
+    fig,ax=plt.subplots(1,1)
+    plt.title("Model Accuracy at Different Delta",fontsize=24)#图标题,设置字体大小
+
+    plt.xlabel('Delta', fontsize=18)#坐标轴标题   
+    plt.ylabel('Accuracy', fontsize=18)
+
+    ax.set_xticks(np.log(np.array(new_delta_list)), labels=new_delta_label)
+    ax.tick_params(labelsize=12)
+    plt.plot(np.log(new_delta_list), accuracy_list, c='tomato')
+    plt.plot(np.log(new_delta_list), dp_accuracy_list, c='blue')
+    plt.legend(['Normal', 'DP'], loc='lower right', fontsize=18)
+
+    plt.show()
+
+    # ================exp_num_iterations================
+    accuracy_list = []
+    dp_accuracy_list = []
+    new_num_iterations_list = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
+    new_num_iterations_label = ["%d"%i for i in new_num_iterations_list]
+    for new_num_iterations in new_num_iterations_list:
+        temp_accuracy, temp_dp_accuracy = [], []
+        for i in range(10):
+            accuracy, dp_accuracy = main(new_num_iterations, epsilon, delta, seed=i)
+            temp_accuracy.append(accuracy)
+            temp_dp_accuracy.append(dp_accuracy)
+        accuracy_list.append(np.mean(temp_accuracy))
+        dp_accuracy_list.append(np.mean(temp_dp_accuracy))
+
+    fig,ax=plt.subplots(1,1)
+    plt.title("Model Accuracy at Different Num Iterations",fontsize=24)#图标题,设置字体大小
+
+    plt.xlabel('Num Iterations', fontsize=18)#坐标轴标题
+    plt.ylabel('Accuracy', fontsize=18)
+
+    ax.set_xticks(np.log(np.array(new_num_iterations_list)), labels=new_num_iterations_label)
+    ax.tick_params(labelsize=12)
+    plt.plot(np.log(new_num_iterations_list), accuracy_list, c='tomato')
+    plt.plot(np.log(new_num_iterations_list), dp_accuracy_list, c='blue')
+    plt.legend(['Normal', 'DP'], loc='lower right', fontsize=18)
+
+    plt.show()
+
+
+
+
 
 if __name__ == "__main__":
-    main()
+    exp()

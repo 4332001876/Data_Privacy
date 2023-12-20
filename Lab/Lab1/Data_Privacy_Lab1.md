@@ -105,23 +105,46 @@ def add_gaussian_noise_to_gradients(sample_gradients, epsilon, delta, C):
 ### 实验结果
 baseline的参数如下：
 
-|      参数      |  值   |
-| :------------: | :---: |
-| num_iterations | 1000  |
-|    epsilon     |  1.0  |
-|     delta      | 1e-3  |
-| learning_rate  | 0.01  |
-|  random_seed   |   1   |
+|      参数      |                   值                    |
+| :------------: | :-------------------------------------: |
+| num_iterations |                  1000                   |
+|    epsilon     |                   1.0                   |
+|     delta      |                  1e-3                   |
+| learning_rate  |                  0.01                   |
+|  random_seed   | 0-9（每组实验由这十个种子的结果取平均） |
 
 以下每组实验将在baseline的基础仅修改一个来进行。
 
 #### 不同差分隐私预算对于模型效果的影响
-本组实验保证其它参数不变，且每个实验仅修改一个参数。
+本组实验保证其它参数不变，且每个实验仅修改一个参数。每组参数的实验结果都由十个种子产生的结果取平均得到。
 
+在取epsilon为`[0.1, 0.2, 0.5, 1, 2, 5, 10]`中的数时，Normal和DP-SGD的准确率测试结果如下：
+
+<img src="./pic/dp_epsilon_result_new.png" width="100%" style="margin: 0 auto;">
+
+注：图像的x轴坐标已经过对数变换。
+
+可以看到，在epsilon较小时，DP-SGD的准确率相较Normal降低不少，但随着epsilon的增大，DP-SGD的准确率逐渐贴近Normal。这是因为epsilon越大，隐私限制越宽松，梯度噪声越小，DP-SGD训练过程中的梯度越接近Normal。
+
+在取delta为`[1e-0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]`中的数时，Normal和DP-SGD的准确率测试结果如下：
+
+<img src="./pic/dp_delta_result_new.png" width="100%" style="margin: 0 auto;">
+
+注：图像的x轴坐标已经过对数变换。
+
+可以看到，在delta较小时，DP-SGD的准确率相较Normal降低不少，但随着delta的增大，DP-SGD的准确率逐渐贴近Normal。这是因为delta越大，隐私限制越宽松，梯度噪声越小，DP-SGD训练过程中的梯度越接近Normal。
 
 
 #### 不同的迭代轮数对于模型效果的影响
-本组实验保证其它参数不变，也即保证相同的总隐私消耗量。
+本组实验保证其它参数不变，也即保证相同的总隐私消耗量。每组参数的实验结果都由十个种子产生的结果取平均得到。
+
+在取num_iterations为`[10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]`中的数时，Normal和DP-SGD的准确率测试结果如下：
+
+<img src="./pic/dp_num_iter_result_new.png" width="100%" style="margin: 0 auto;">
+
+注：图像的x轴坐标已经过对数变换。
+
+可以看到，随着迭代轮数的增加，Normal的准确率逐渐上升，但DP-SGD的准确率先上升后再大幅下降。这是因为低迭代次数时，欠拟合占影响准确率的主导因素，因此随着迭代轮数的增加，其性能可稍微提高；而在高迭代次数时，梯度噪声成为影响准确率的主导因素，DP-SGD每轮获取的梯度被分配到的隐私预算越低，梯度噪声也会增加，导致模型的准确率下降。总的来说，随着迭代轮数的增加，DP-SGD的准确率和Normal相差越来越大。
 
 
 ## Elgamal
@@ -212,6 +235,8 @@ def elgamal_decrypt(public_key, private_key, ciphertext):
 
 
 ### 测试三阶段时间开销
+
+
 
 
 ### 验证 ElGamal 算法的随机性以及乘法同态性质
