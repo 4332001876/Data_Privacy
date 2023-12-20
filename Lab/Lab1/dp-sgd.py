@@ -3,7 +3,9 @@ from sklearn.datasets import make_classification, load_breast_cancer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-RANDOM_STATE = 42
+import matplotlib.pyplot as plt
+
+RANDOM_STATE = 1
 class LogLevel:
     DEBUG = 0
     INFO = 1 
@@ -24,7 +26,7 @@ class LogisticRegressionCustom:
         self.bias = None
 
     def sigmoid(self, z):
-        return 1 / (1 + np.exp(-z)) # clip(z, -300, 300)
+        return 1 / (1 + np.exp(-clip(z, -500, 500))) # clip(z, -300, 300)
 
     def __fit(self, X, y, is_dp=False, epsilon=None, delta=None, C=1):
         # Initialize weights and bias
@@ -69,13 +71,14 @@ class LogisticRegressionCustom:
                 dw = clip_gradients(dw, C)
                 # Add noise to gradients
                 # *-TODO: Calculate epsilon_u, delta_u based epsilon, delta and epochs here.
-                # 由Advanced Composition Theorem可知，对于每个epoch，我们可以将epsilon和delta分别除以epoch数，然后加到每个epoch上，这样就可以保证总的epsilon和delta不变。
+                # 由Advanced Composition Theorem算出每个epoch需要的隐私保证
                 k = self.num_iterations
                 # epsilon_u, delta_u = epsilon / k, delta / k
                 delta_u = delta / (k + 1)
                 # 近似计算epsilon_u
+                # 第一步，近似计算epsilon_u，这一步的计算结果会偏大
                 epsilon_u = epsilon / np.sqrt(2 * k * np.log(1 / delta_u))
-                # 下面式子中，分母中的epsilon_u大于真实的epsilon_u，因此可以保证epsilon_u的计算结果偏小，符合隐私保证
+                # 第二步，进行修正，分母中的epsilon_u大于真实的epsilon_u，因此可以保证epsilon_u的计算结果偏小，符合隐私保证
                 epsilon_u = epsilon / (np.sqrt(2 * k * np.log(1 / delta_u)) + k * (np.exp(epsilon_u) - 1)) 
                 dw = add_gaussian_noise_to_gradients(dw, epsilon_u, delta_u, C)
 
@@ -173,26 +176,35 @@ def add_gaussian_noise_to_gradients(sample_gradients, epsilon, delta, C):
     return noisy_gradients
 
 
-if __name__ == "__main__":
+def main(num_iterations = 100, epsilon = 1.0, delta = 1e-3):
     np.random.seed(RANDOM_STATE) # 种子，保证结果可复现
     # Prepare datasets.
     dataset_name = "cancer"
     X_train, X_test, y_train, y_test = get_train_data(dataset_name)
 
     LEARNING_RATE = 0.01
-    NUM_ITERATIONS = 100
 
     # Training the normal model
-    normal_model = LogisticRegressionCustom(learning_rate=LEARNING_RATE, num_iterations=NUM_ITERATIONS)
+    normal_model = LogisticRegressionCustom(learning_rate=LEARNING_RATE, num_iterations=num_iterations)
     normal_model.fit(X_train, y_train)
     y_pred = normal_model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     print("Normal accuracy:", accuracy)
 
     # Training the differentially private model
-    dp_model = LogisticRegressionCustom(learning_rate=LEARNING_RATE, num_iterations=NUM_ITERATIONS)
-    epsilon, delta = 1.0, 1e-3
+    dp_model = LogisticRegressionCustom(learning_rate=LEARNING_RATE, num_iterations=num_iterations)
     dp_model.dp_fit(X_train, y_train, epsilon=epsilon, delta=delta, C=1)
     y_pred = dp_model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
+    dp_accuracy = accuracy_score(y_test, y_pred)
     print("DP accuracy:", accuracy)
+
+    return accuracy, dp_accuracy
+
+def exp():
+    num_iterations = 1000
+    epsilon = 1.0
+    delta = 1e-3
+
+
+if __name__ == "__main__":
+    main()
