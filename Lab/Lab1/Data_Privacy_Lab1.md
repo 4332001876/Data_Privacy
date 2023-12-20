@@ -8,8 +8,8 @@
 
 本次实验的目的是使用DP-SGD算法训练一个二分类器，使得该二分类器能够对新的样本进行预测，判断该样本是否为恶性肿瘤。
 
-
-### 实验框架debug
+### 代码实现
+#### 实验框架debug
 代码中的梯度下降公式有误，应改为如下形式（第一条公式可选择下面CrossEntropyLoss与L2Loss中的一种）：
 ```python
 dz = -(y / (predictions + self.tau) - (1 - y) / (1 - predictions + self.tau)) # Cross entropy loss
@@ -26,6 +26,7 @@ db = np.sum(dz) / num_samples
 X = (X - np.mean(X, axis=0)) / X.std(axis=0)
 ```
 
+#### 使用Advanced Composition Theorem计算
 
 
 

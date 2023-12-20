@@ -3,7 +3,7 @@ from sklearn.datasets import make_classification, load_breast_cancer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-RANDOM_STATE = 1
+RANDOM_STATE = 42
 class LogLevel:
     DEBUG = 0
     INFO = 1 
@@ -164,7 +164,7 @@ def add_gaussian_noise_to_gradients(sample_gradients, epsilon, delta, C):
     # *-TODO: add gaussian noise to gradients.
     gradients = np.sum(sample_gradients, axis=0)
 
-    std = C * np.sqrt(2 * np.log(1.25 / delta)) / epsilon
+    std = C * np.sqrt(2 * np.log(1.25 / delta)) / epsilon # 上述梯度裁剪已经保证了C即为sensitivity的上界
     noise = np.random.normal(loc=0.0, scale=std, size=gradients.shape)
     noisy_gradients = gradients + noise
 
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = get_train_data(dataset_name)
 
     LEARNING_RATE = 0.01
-    NUM_ITERATIONS = 10000
+    NUM_ITERATIONS = 100
 
     # Training the normal model
     normal_model = LogisticRegressionCustom(learning_rate=LEARNING_RATE, num_iterations=NUM_ITERATIONS)
