@@ -115,6 +115,51 @@ GENTLEMEN DO NOT READ EACH OTHER'S MAIL
 由此，由香农定理可得，该密码系统是完美安全的。
 
 \subsection*{(b)}
+因为该密码系统是完美安全的，且$|\mathcal{M}| = |\mathcal{C}| = |\mathcal{K}|$，由香农定理得：
+\begin{itemize}
+    \item $\forall k \in \mathcal{K}, P(k)=\frac{1}{|\mathcal{K}|}$
+    \item $\forall m \in \mathcal{M}, c \in \mathcal{C}$，有且仅有一个$k \in \mathcal{K}$使得$e_k(m) = c$
+\end{itemize}
+
+对于每一个$m \in \mathcal{M}$，固定$m$，有以下结论：
+
+因为$\forall c \in \mathcal{C}$，有且仅有一个$k \in \mathcal{K}$使得$e_k(m) = c$，
+所以对于满足$e_k(m) = c$的密文密钥对，其构成映射$f: \mathcal{C} \to \mathcal{K}$。
+
+因为同一个key加密$m$之后得到的密文是唯一的，所以$\forall c_1, c_2 \in \mathcal{C} s.t. c_1 \ne c_2$，其加密密钥不同，
+则$f: \mathcal{C} \to \mathcal{K}$为单射。
+
+又由于对于每个$k \in \mathcal{K}$，均存在$c \in \mathcal{C}$使得$e_k(m) = c$，所以$f: \mathcal{C} \to \mathcal{K}$为满射。
+
+综上，$f: \mathcal{C} \to \mathcal{K}$为双射。
+
+则$\forall c \in \mathcal{C}, P(c)=P(f(c))=\frac{1}{|\mathcal{K}|}=\frac{1}{|\mathcal{C}|}$
+
+则对于每一个$m \in \mathcal{M}$，$\mathcal{C}$中每个密文出现的概率相等。
+
+则$\mathcal{C}$中每个密文出现的概率相等。
+
+
+\section{RSA}
+\subsection*{(a)}
+
+\subsection*{(b)}
+
+\subsection*{(c)}
+
+
+\section{Multi-Party Computation}
+\subsection*{(a)}
+
+\subsection*{(b)}
+
+
+
+
+\section{Computational Security}
+\subsection*{(a)}
+
+\subsection*{(b)}
 
 
 \end{document}
