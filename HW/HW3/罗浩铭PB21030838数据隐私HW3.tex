@@ -90,24 +90,9 @@ GENTLEMEN DO NOT READ EACH OTHER'S MAIL
 证明如下：
 
 因为$|\mathcal{M}| = |\mathcal{C}| = |\mathcal{K}|$；对于每个$k \in \mathcal{K}$，其被选中的概率相等；
-对于每个$m \in \mathcal{M}$与每个$c \in \mathcal{C}$，都有且仅有一个$k \in \mathcal{K}$使得$e_k(m) = c$：
-\begin{center}
-    \begin{tabular}{|c|c|c|}
-        \hline
-        $m$ & $c$ & $k$ \\
-        \hline
-        1   & 1   & 1   \\
-        1   & 2   & 3   \\
-        1   & 3   & 2   \\
-        2   & 1   & 2   \\
-        2   & 2   & 1   \\
-        2   & 3   & 3   \\
-        3   & 1   & 3   \\
-        3   & 2   & 2   \\
-        3   & 3   & 1   \\
-        \hline
-    \end{tabular}
-\end{center}
+
+对于每个$m \in \mathcal{M}$与每个$c \in \mathcal{C}$，因为Latin Square中每列每个元素正好出现一次，
+则有且仅有一个$k \in \mathcal{K}$使得$L(k,m)=c$，也即$e_k(m) = c$。
 
 由此，由香农定理可得，该密码系统是完美安全的。
 
@@ -149,11 +134,11 @@ GENTLEMEN DO NOT READ EACH OTHER'S MAIL
 则公钥有$3839$种。
 
 \subsection*{(b)}
-Bob收到的密文为$C = M^e \pmod{n} = 9726^{3533} \pmod{11413} = 5761$。
+Bob收到的密文为$C = M^e \bmod{n} = 9726^{3533} \bmod{11413} = 5761$。
 
-因为$e=3533$，所以$ed \equiv 1 \pmod{\phi(n)}$，即$3533d \equiv 1 \pmod{11200}$，使用扩展欧几里得算法解得$d=6597$。
+因为$e=3533$，所以$ed \equiv 1 \bmod{\phi(n)}$，即$3533d \equiv 1 \bmod{11200}$，使用扩展欧几里得算法解得$d=6597$。
 
-Bob用自己的私钥$d$将$C$其解密得到明文为$M = C^d \pmod{n} = 7624^{6597} \pmod{11413} = 9726$。
+Bob用自己的私钥$d$将$C$其解密得到明文为$M = C^d \bmod{n} = 7624^{6597} \bmod{11413} = 9726$。
 
 \subsection*{(c)}
 对于不同的质数$p,q$，$n=pq$，$\phi(n)=(p-1)(q-1)$
@@ -168,16 +153,86 @@ Bob用自己的私钥$d$将$C$其解密得到明文为$M = C^d \pmod{n} = 7624^{
 
 \section{Multi-Party Computation}
 \subsection*{(a)}
+\subsubsection*{(1)}
+因为$p=11, q=17$，所以$n=pq=187$，$\lambda=lcm(p-1, q-1)=80$。
+
+此处选择$g=n+1=188$，则由$L(x)=\frac{x-1}{n}$:
+\begin{align*}
+    \mu & =(L(g^\lambda \bmod{n^2}))^{-1} \bmod{n}    \\
+        & =(L(188^{80} \bmod{187^2}))^{-1} \bmod{187} \\
+        & =(L(14961))^{-1} \bmod{187}                 \\
+        & = 80^{-1} \bmod{187}                        \\
+        & = 180                                       \\
+\end{align*}
+
+接下来是加密过程：
+
+由$M=175, r=83$，Bob收到的密文为$C=g^M r^n \bmod{n^2} = 188^{175} 83^{187} \bmod{187^2} = 23911$
+
+接下来是解密过程：
+
+解密得到的密文为：
+\begin{align*}
+    M' & =L(C^\lambda \bmod{n^2}) \cdot \mu \bmod{n}      \\
+       & =L(23911^{80} \bmod{187^2}) \cdot 180 \bmod{187} \\
+       & =L(30295) \cdot 180 \bmod{187}                   \\
+       & = 162 \cdot 180 \bmod{187}                       \\
+       & = 175
+\end{align*}
+
+\subsubsection*{(2)}
+因为$c_1=g^{m_1} r^n \bmod{n^2}, c_2=g^{m_2} r^n \bmod{n^2}$，
+
+所以$(c_1 \cdot c_2) \bmod{n^2} = g^{m_1+m_2} r^{2n} \bmod{n^2}$
+
+记$r'=r^2 \bmod{n}$，由于$r$与$n$互质，则$r'$与$n$互质。
+
+设$r'$模$n$的余数为$r_1$，则存在整数$k$使得$r' = kn + r_1$。则$r_1$与$n$互质，且$0<r_1<n$，由此$r_1$符合加密过程所需随机数的选取规则。
+由此有：
+\begin{align*}
+      & r^{2n} \bmod{n^2}                                              \\
+    = & (r')^{n} \bmod{n^2}                                            \\
+    = & (kn + r_1)^{n} \bmod{n^2}                                      \\
+    = & (k^n n^n + ... + n \cdot kn(r_1)^{n-1} + (r_1)^{n}) \bmod{n^2} \\
+    = & (r_1)^{n} \bmod{n^2}                                           \\
+\end{align*}
+
+则$(c_1 \cdot c_2) \bmod{n^2}=g^{m_1+m_2} (r_1)^{n} \bmod{n^2}$，相当于选取了随机数$r_1$且明文为$m_1+m_2$时加密得到的密文。
+
+由此，$Decrypt( (c_1 \cdot c_2) \bmod{n^2} ) =m_1+m_2$，同态加性质得证。
 
 \subsection*{(b)}
+定义函数$f(i)$使得$f(1)=3, f(2)=1, f(3)=2$。
 
+对于任意共享方$P_i$，其掌握的秘密为$x_i, y_i, a_i=x_{f(i)} \bigoplus v_1, b_i=y_{f(i)} \bigoplus v_2$，
+则借助以上信息，他可算得：
+\begin{align*}
+     & x_i \bigoplus y_i                                                              \\
+     & a_i \bigoplus b_i =  x_{f(i)} \bigoplus v_1 \bigoplus y_{f(i)} \bigoplus v_2 =
+    (x_{f(i)} \bigoplus y_{f(i)}) \bigoplus (v_1 \bigoplus v_2)                       \\
+\end{align*}
 
+令$z_i = x_i \bigoplus y_i, i=1,2,3$，则有：
+\begin{align*}
+    z_1 \bigoplus z_2 \bigoplus z_3 & = (x_1 \bigoplus y_1) \bigoplus (x_2 \bigoplus y_2) \bigoplus (x_3 \bigoplus y_3) \\
+                                    & = (x_1 \bigoplus x_2 \bigoplus x_3) \bigoplus (y_1 \bigoplus y_2 \bigoplus y_3) \\
+                                    & = 0 \bigoplus 0 = 0
+\end{align*}
+
+又由上述结果，每个人$P_i$无需通信就可以得到$(z_i, z_{f(i)} \bigoplus (v_1 \bigoplus v_2))$，
+则无需通信每个人就可以获得$v_1 \bigoplus v_2$的秘密共享。
 
 
 \section{Computational Security}
 \subsection*{(a)}
+Interchangeable与Indistinguishable的主要区别是：
+Interchangeable要求两个函数的输出结果的各种取值的概率分布完全相同，
+而Indistinguishable只要求两个函数的输出结果概率分布几乎相同，
+也即概率之差是关于密钥长度$\lambda$的可忽略(negligible)函数（指其与任意$\lambda$的多项式的乘积都在$\lambda$趋于无穷时收敛至0）。
 
 \subsection*{(b)}
 
+
+\subsection*{(c)}
 
 \end{document}
