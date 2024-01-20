@@ -215,7 +215,7 @@ Bob用自己的私钥$d$将$C$其解密得到明文为$M = C^d \bmod{n} = 7624^{
 令$z_i = x_i \bigoplus y_i, i=1,2,3$，则有：
 \begin{align*}
     z_1 \bigoplus z_2 \bigoplus z_3 & = (x_1 \bigoplus y_1) \bigoplus (x_2 \bigoplus y_2) \bigoplus (x_3 \bigoplus y_3) \\
-                                    & = (x_1 \bigoplus x_2 \bigoplus x_3) \bigoplus (y_1 \bigoplus y_2 \bigoplus y_3) \\
+                                    & = (x_1 \bigoplus x_2 \bigoplus x_3) \bigoplus (y_1 \bigoplus y_2 \bigoplus y_3)   \\
                                     & = 0 \bigoplus 0 = 0
 \end{align*}
 
@@ -231,8 +231,79 @@ Interchangeable要求两个函数的输出结果的各种取值的概率分布�
 也即概率之差是关于密钥长度$\lambda$的可忽略(negligible)函数（指其与任意$\lambda$的多项式的乘积都在$\lambda$趋于无穷时收敛至0）。
 
 \subsection*{(b)}
+\subsubsection*{(1)}
+$\frac{1}{2^{\lambda / 2}}$为递减的指数函数，
+因此对任意多项式$P(\lambda)$都有$\lim_{\lambda \to \infty} P(\lambda)\frac{1}{2^{\lambda / 2}} =0$，因此是可忽略的。
 
+\subsubsection*{(2)}
+因为$\frac{1}{2^{\log (\lambda^2)}} = \frac{1}{\lambda^2}$为多项式函数，因此其并非可忽略的。
+
+\subsubsection*{(3)}
+对任意多项式$P(\lambda)$，记其最高次为$c$，也即$\lim_{\lambda \to \infty} \frac{P(\lambda)}{\lambda^c}=1$，都有：
+\begin{align*}
+      & \lim_{\lambda \to \infty} P(\lambda)\frac{1}{\lambda^{\log (\lambda)}} \\
+    = & \lim_{\lambda \to \infty} \frac{1}{\lambda^{\log (\lambda)-c}}         \\
+    = & 0
+\end{align*}
+因此其是可忽略的。
+
+\subsubsection*{(4)}
+因为$\frac{1}{\lambda^2}$为多项式函数，因此其并非可忽略的。
+
+\subsubsection*{(5)}
+因为$\frac{1}{2^{(\log \lambda)^2}} = \frac{1}{\lambda^{\log (\lambda)}}$，则由(3)的结论可知其是可忽略的。
+
+\subsubsection*{(6)}
+因为$\frac{1}{(\log \lambda)^2} \cdot \lambda^2$在$\lambda$趋于无穷时也趋于无穷，因此$\frac{1}{(\log \lambda)^2}$并非可忽略的。
+
+\subsubsection*{(7)}
+因为$\frac{1}{\lambda^{1 / \lambda}} \cdot \lambda = \frac{1}{\lambda^{1 / \lambda-1}}$在$\lambda$趋于无穷时也趋于无穷，
+因此$\frac{1}{\lambda^{1 / \lambda}}$并非可忽略的。
+
+\subsubsection*{(8)}
+因为$\frac{1}{\sqrt{\lambda}}$为多项式函数，因此其并非可忽略的。
+
+\subsubsection*{(9)}
+对任意多项式$P(\lambda)$，记其最高次为$c$，也即$\lim_{\lambda \to \infty} \frac{P(\lambda)}{\lambda^c}=1$，都有：
+\begin{align*}
+      & \lim_{\lambda \to \infty} P(\lambda) \frac{1}{2^{\sqrt{\lambda}}}     \\
+    = & \lim_{\lambda \to \infty} \frac{\lambda^c}{2^{\sqrt{\lambda}}}        \\
+    = & \lim_{\lambda \to \infty} \frac{1}{2^{\sqrt{\lambda}-c \log \lambda}} \\
+    = & 0
+\end{align*}
+因此其是可忽略的。
+
+综上所述，(1),(3),(5),(9)是可忽略的，其余的都不是可忽略的。
 
 \subsection*{(c)}
+如果$f,g$是可忽略的，则对任意多项式$P(\lambda)$，都有：
+\begin{align*}
+    \lim_{\lambda \to \infty} P(\lambda)f(\lambda) & = 0 \\
+    \lim_{\lambda \to \infty} P(\lambda)g(\lambda) & = 0 \\
+\end{align*}
+
+\subsubsection*{(1)}
+因为
+\begin{align*}
+      & \lim_{\lambda \to \infty} P(\lambda)(f+g)(\lambda)                                                \\
+    = & (\lim_{\lambda \to \infty} P(\lambda)f(\lambda) + \lim_{\lambda \to \infty} P(\lambda)g(\lambda)) \\
+    = & 0                                                                                                 \\
+\end{align*}
+
+所以$f+g$也是可忽略的。
+
+\subsubsection*{(2)}
+因为
+\begin{align*}
+      & \lim_{\lambda \to \infty} P(\lambda)(f \cdot g)(\lambda)                                            \\
+    = & (\lim_{\lambda \to \infty} P(\lambda)f(\lambda) \cdot \lim_{\lambda \to \infty} 1 \cdot g(\lambda)) \\
+    = & 0                                                                                                   \\
+\end{align*}
+
+所以$f \cdot g$也是可忽略的。
+
+\subsubsection*{(3)}
+当$f(\lambda)=g(\lambda)$时，例如$f(\lambda)=g(\lambda)=\frac{1}{2^\lambda}$，
+此时虽然$f(\lambda),g(\lambda)$是可忽略的，但是$f(\lambda)/g(\lambda)=1$并非可忽略的。
 
 \end{document}
