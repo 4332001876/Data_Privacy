@@ -90,15 +90,121 @@ VFL-LR算法主逻辑如图\ref{fig:VFL-LR}所示。
     \label{fig:VFL-LR}
 \end{figure}
 
-主逻辑的代码已经在附录中给出
-其中大部分
+主逻辑的代码已经在附录中给出，下面对需要填空的部分进行重点讲解。
+
+进入每个epoch中的batch循环之前，Party A和Party B会使用同一个密钥对数据进行shuffle，
+从而使得每个batch中两边选择的样本下标一致，分别记为$D_A, D_B$。
+
+主逻辑中第0步密钥生成与公钥分发、第1步模型初始化、第6步更新模型部分已实现。下面对第2步至第5步进行讲解。
+
+\textbf{第二步：}
+
+Party A计算$\Theta^A x_i^A$如下：
+\begin{lstlisting}
+    active_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算A的wx
+\end{lstlisting}
+
+Party B计算$\Theta^B x_i^B$如下，并将结果发送给A：
+\begin{lstlisting}
+    passive_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算B的wx
+    self.messenger.send(passive_wx)
+\end{lstlisting}
+
+\textbf{第三步：}
+
+Party A汇总$\Theta^A x_i^A$与$\Theta^B x_i^B$，计算出$y$的预测值如下：
+\begin{lstlisting}
+    full_wx = active_wx + passive_wx  # （填空）综合A、B的wx（纵向联邦综合结果的关键一步）
+    y_hat = self.activation(full_wx)
+\end{lstlisting}
+
+由于纵向联邦学习中，Party A与Party B的数据中的列是不同的，
+这里汇总两边结果时用的是加法实际上是相当于把两边的数据拼接起来，同时用拼接了两边参数的模型进行预测：
+$$
+    \Theta^A x_i^A + \Theta^B x_i^B =
+    \begin{pmatrix}
+        \Theta^A & \Theta^B
+    \end{pmatrix}
+    \begin{pmatrix}
+        x_i^A \\
+        x_i^B
+    \end{pmatrix}
+$$
+
+再过个Sigmoid激活函数，就得到了$y$的预测值$\hat{y}=\mathrm{Sigmoid}(\Theta^A x_i^A + \Theta^B x_i^B)$
+
+此后将预测值的误差（与真实值的残差）$y-\hat{y}$加密后传给Party B。
+\begin{lstlisting}
+    residue = self.y_train[batch_idxes] - y_hat
+    residue = np.array([round(res, self.RESIDUE_PRECISION) for res in residue])
+
+    enc_residue = self.cryptosystem.encrypt_vector(residue)  # （填空）对误差进行加密
+    enc_residue = np.array(enc_residue)
+    self.messenger.send(enc_residue)
+\end{lstlisting}
+其具体步骤为：计算残差，将浮点数精度舍入到指定精度，
+调用Paillier加密函数\texttt{self.cryptosystem.encrypt_vector}将残差向量加密，并将加密后的残差向量$[[ y-\hat{y} ]]$发送给Party B。
+
+\textbf{第四步：}
+Party A直接利用残差$y-\hat{y}$反向传播计算梯度。
+\begin{lstlisting}
+    active_grad = self._gradient(residue, batch_idxes)
+\end{lstlisting}
+
+Party B收到加密的残差$[[ y-\hat{y} ]]$后，在密文空间进行同态计算得到密文空间中的梯度$[[\frac{\partial L}{\partial \Theta^B}]]$。
+
+由于Paillier的同态性质，密文空间中的乘法对应明文中的加法，密文空间中的乘方对应明文中的数乘。
+而反向传播计算梯度的过程中，只需用到加法和数乘，因此可以在密文空间中进行同态计算得到密文空间中的梯度。
+（要注意的是：虽然同态空间内的“加法”是乘法，“数乘”是乘方，但人家phe库中的密文类已经帮你实现这一算符重载了，无需你自己关心这一细节）
+
+\begin{lstlisting}
+    enc_residue = self.messenger.recv()
+    # print("enc_residue: ", enc_residue)
+    enc_grad = self._gradient(enc_residue, batch_idxes)
+    # print("enc_grad: ", enc_grad)
+    enc_mask_grad, mask = self._mask_grad(enc_grad)
+    self.messenger.send(enc_mask_grad)
+\end{lstlisting}
+
+
+\begin{lstlisting}
+    def _mask_grad(self, enc_grad):
+        shape = enc_grad.shape
+        mask = np.random.normal(0, 10.0, shape)  # 取随机数mask
+        enc_mask = self.cryptosystem.encrypt_vector(mask)  # 加密mask
+        enc_mask_grad = enc_grad + enc_mask  # 对密文进行同态加（这个加法被重载过，对应了Paillier密文的乘法）
+        return enc_mask_grad, mask
+\end{lstlisting}
+
+\textbf{第五步：}
+
+\begin{lstlisting}
+    enc_passive_grad = self.messenger.recv()
+    passive_grad = self.cryptosystem.decrypt_vector(enc_passive_grad)  # （填空）解密得到B的梯度与梯度之和
+    self.messenger.send(passive_grad)
+\end{lstlisting}
+
+
+
+\begin{lstlisting}
+    mask_grad = self.messenger.recv()
+    true_grad = self._unmask_grad(mask_grad, mask)
+\end{lstlisting}
+
+
+\begin{lstlisting}
+    def _unmask_grad(self, mask_grad, mask):
+        true_grad = mask_grad - mask  # 减去随机数mask得到梯度
+        return true_grad
+\end{lstlisting}
+
 
 \subsubsection{Accuracy计算}
 
 \begin{lstlisting}
-def _acc(self, y_true, y_hat):
-    acc = np.mean(y_true == (y_hat >= 0.5))
-    return acc
+    def _acc(self, y_true, y_hat):
+        acc = np.mean(y_true == (y_hat >= 0.5))
+        return acc
 \end{lstlisting}
 
 布尔数组与0,1数组在绝大多数情况下等价，布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致
@@ -125,6 +231,10 @@ def _acc(self, y_true, y_hat):
 
 \section{实验分析及开放题}
 % （10`）开放题：试分析VFL-LR训练流程中潜在的隐私泄露风险，并简要说明可能的保护方式
+
+$\Theta^B x_i^B$的label泄露
+
+$\frac{\partial L}{\partial \Theta^B}+R_B$
 
 \appendix
 \section*{附录}

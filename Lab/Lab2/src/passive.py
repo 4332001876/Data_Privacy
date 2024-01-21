@@ -93,7 +93,7 @@ class LinearPassive:
 
                 # Q1. Calculate wx and send it to active party
                 # -----------------------------------------------------------------
-                passive_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算B的预测值
+                passive_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算B的wx
                 self.messenger.send(passive_wx)
                 # -----------------------------------------------------------------
 
