@@ -142,10 +142,12 @@ $$
     enc_residue = np.array(enc_residue)
     self.messenger.send(enc_residue)
 \end{lstlisting}
+
 其具体步骤为：计算残差，将浮点数精度舍入到指定精度，
-调用Paillier加密函数\texttt{self.cryptosystem.encrypt_vector}将残差向量加密，并将加密后的残差向量$[[ y-\hat{y} ]]$发送给Party B。
+调用Paillier加密函数 \\ \verb|self.cryptosystem.encrypt_vector| 将残差向量加密，并将加密后的残差向量$[[y-\hat{y}]]$发送给Party B。
 
 \textbf{第四步：}
+
 Party A直接利用残差$y-\hat{y}$反向传播计算梯度。
 \begin{lstlisting}
     active_grad = self._gradient(residue, batch_idxes)
@@ -157,6 +159,7 @@ Party B收到加密的残差$[[ y-\hat{y} ]]$后，在密文空间进行同态�
 而反向传播计算梯度的过程中，只需用到加法和数乘，因此可以在密文空间中进行同态计算得到密文空间中的梯度。
 （要注意的是：虽然同态空间内的“加法”是乘法，“数乘”是乘方，但人家phe库中的密文类已经帮你实现这一算符重载了，无需你自己关心这一细节）
 
+此后，Party B将密文空间中的梯度$[[\frac{\partial L}{\partial \Theta^B}]]$加上一个随机数mask $[[R_B]]$后，发送给Party A。
 \begin{lstlisting}
     enc_residue = self.messenger.recv()
     # print("enc_residue: ", enc_residue)
@@ -166,7 +169,7 @@ Party B收到加密的残差$[[ y-\hat{y} ]]$后，在密文空间进行同态�
     self.messenger.send(enc_mask_grad)
 \end{lstlisting}
 
-
+加随机数mask的方法如下：
 \begin{lstlisting}
     def _mask_grad(self, enc_grad):
         shape = enc_grad.shape
@@ -176,39 +179,53 @@ Party B收到加密的残差$[[ y-\hat{y} ]]$后，在密文空间进行同态�
         return enc_mask_grad, mask
 \end{lstlisting}
 
-\textbf{第五步：}
+首先我们取与原梯度相同shape且噪声足以基本盖过原梯度信息（这里取了标准差为10的随机正态分布）的随机数mask，
+然后将mask加密，最后将加密后的mask与原梯度相加得到加上mask的梯度并返回（这里的加仍是同态空间的加，密文类重载的加法，也即实际上的乘法）。
 
+\textbf{第五步：}
+由于Paillier的同态性质，$[[\frac{\partial L}{\partial \Theta^B}]]+[[R_B]]=[[\frac{\partial L}{\partial \Theta^B}+R_B]]$，
+而A持有私钥，因此将其解密可得$\frac{\partial L}{\partial \Theta^B}+R_B$，将其发送给B。
+实现如下：
 \begin{lstlisting}
     enc_passive_grad = self.messenger.recv()
     passive_grad = self.cryptosystem.decrypt_vector(enc_passive_grad)  # （填空）解密得到B的梯度与梯度之和
     self.messenger.send(passive_grad)
 \end{lstlisting}
 
+注意，上一步加上随机数就是为了让A在这一步无法得到B的梯度。
 
-
+B收到$\frac{\partial L}{\partial \Theta^B}+R_B$后，将其减去随机数mask $R_B$得到$\frac{\partial L}{\partial \Theta^B}$，
 \begin{lstlisting}
     mask_grad = self.messenger.recv()
     true_grad = self._unmask_grad(mask_grad, mask)
 \end{lstlisting}
 
-
+其中\verb |self._unmask_grad| 函数实现如下：
 \begin{lstlisting}
     def _unmask_grad(self, mask_grad, mask):
         true_grad = mask_grad - mask  # 减去随机数mask得到梯度
         return true_grad
 \end{lstlisting}
 
+此时双方都得到了自己的参数梯度，可以进行第六步的参数更新了。
 
 \subsubsection{Accuracy计算}
-
+Accuracy的计算函数代码如下：
 \begin{lstlisting}
     def _acc(self, y_true, y_hat):
         acc = np.mean(y_true == (y_hat >= 0.5))
         return acc
 \end{lstlisting}
 
-布尔数组与0,1数组在绝大多数情况下等价，布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致
+其计算逻辑为：
+先将预测值$\hat{y}$中大于等于0.5的部分置为1，小于0.5的部分置为0，作为预测的label，
+然后将其与与真实值$y$进行比较，得到一个布尔数组，表示每一位结果是否正确。
+最后计算布尔数组的平均值，即为Accuracy。
 
+为了运行效率，我们的实现中的每一步坚持使用向量化计算。
+
+同时，要注意的是，布尔数组与0,1数组在绝大多数情况下等价，
+布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致，也即在此函数内的每一步混用都是合法的。
 
 
 
@@ -221,12 +238,49 @@ Party B收到加密的残差$[[ y-\hat{y} ]]$后，在密文空间进行同态�
 % （20`）当前代码在每个 epoch 开始时使用 epoch 值作为随机数种子，请说明含义，并实现另一种方式以达到相同的目的。
 
 这是为了使得Party A\&B在每个epoch中使用相同的随机数，从而使得每次迭代中两边选择的样本下标一致，
-从而可以将两边得到的label直接相加得到最终结果，也使得此结果可对正确下标的样本输入进行反向传播求导。
+从而可以将两边得到的label直接相加即可得到最终结果，也使得此结果可对正确下标的输入样本进行反向传播求导。
 
+我们可以使用其他方式来实现相同的目的，比如：
+每一个epoch中，B生成随机数种子，将其用公钥加密后发送给A，A用私钥解密后得到该种子，此后该epoch内两边都使用此种子生成随机数。
 
 \section{实验结果}
+我们使用了默认参数进行实验。
 
+实验测得的各个epoch下的loss和accuracy值图像如图\ref{fig:loss}和图\ref{fig:acc}所示。
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{pic/loss-plot.png}
+    \caption{各epoch下的loss值图像}
+    \label{fig:loss}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{pic/accuracy-plot.png}
+    \caption{各epoch下的accuracy值图像}
+    \label{fig:acc}
+\end{figure}
+
+经过100个epoch的训练，最终得到的准确率为0.980，loss值为0.105。这样的准确率证明了我们的实现方案的有效性。
+
+在本人的搭载AMD Ryzen 7 4800H CPU、内存16GB的笔记本电脑上，100个epoch的训练时间约为20分钟，每个epoch约需12s来训练。
+
+其中Active端进程输出如图\ref{fig:active}所示，Passive端进程输出如图\ref{fig:passive}所示。
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{pic/active-output.png}
+    \caption{Active端进程输出}
+    \label{fig:active}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{pic/passive-output.png}
+    \caption{Passive端进程输出}
+    \label{fig:passive}
+\end{figure}
 
 
 \section{实验分析及开放题}
