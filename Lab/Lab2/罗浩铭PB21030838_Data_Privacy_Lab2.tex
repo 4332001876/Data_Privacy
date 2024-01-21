@@ -79,10 +79,19 @@
 % （50`）基于 paillier 同态加密实现 VFL-LR 算法，保护训练中间变量，避免产生隐私泄露。
 %  补全模型训练过程中的前向及反向传播的具体代码，记录 cancer 数据集在训练过程中的loss及acc变化。
 
-\subsubsection{Party A(Active Party)的前向传播}
+\subsubsection{VFL-LR算法主逻辑}
 
+VFL-LR算法主逻辑如图\ref{fig:VFL-LR}所示。
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{pic/VFL-LR.png}
+    \caption{VFL-LR算法主逻辑}
+    \label{fig:VFL-LR}
+\end{figure}
 
+主逻辑的代码已经在附录中给出
+其中大部分
 
 \subsubsection{Accuracy计算}
 
@@ -105,7 +114,7 @@ def _acc(self, y_true, y_hat):
 \subsection{随机数种子}
 % （20`）当前代码在每个 epoch 开始时使用 epoch 值作为随机数种子，请说明含义，并实现另一种方式以达到相同的目的。
 
-这是为了使得Party A&B在每个epoch中使用相同的随机数，从而使得每次迭代中两边选择的样本下标一致，
+这是为了使得Party A\&B在每个epoch中使用相同的随机数，从而使得每次迭代中两边选择的样本下标一致，
 从而可以将两边得到的label直接相加得到最终结果，也使得此结果可对正确下标的样本输入进行反向传播求导。
 
 

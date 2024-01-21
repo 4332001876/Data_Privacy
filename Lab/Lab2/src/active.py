@@ -87,6 +87,7 @@ class LinearActive:
                 total_loss += loss * len(batch_idxes)
 
                 residue = self.y_train[batch_idxes] - y_hat
+                # residue = residue * y_hat * (1 - y_hat) # sigmoid derivative
                 residue = np.array([round(res, self.RESIDUE_PRECISION) for res in residue])
 
                 # Q2. Active party helps passive party to calculate gradient
