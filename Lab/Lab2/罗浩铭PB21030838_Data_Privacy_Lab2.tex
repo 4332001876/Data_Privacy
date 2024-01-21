@@ -227,11 +227,39 @@ Accuracy的计算函数代码如下：
 同时，要注意的是，布尔数组与0,1数组在绝大多数情况下等价，
 布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致，也即在此函数内的每一步混用都是合法的。
 
-
+（训练过程中的loss及acc变化在实验结果部分进行展示）
 
 \subsection{sacle函数的原理及作用}
 % （20`）请说明代码中 scale 函数的原理及作用。
+代码中的scale函数实现如下：
+\begin{lstlisting}
+    def scale(dataset):
+        raw_dataset = dataset.get_dataset() # 获取数据集
 
+        start_col = 2 if dataset.has_label else 1 # 从第2列开始是feature
+        scaled_feats = preprocessing.scale(raw_dataset[:, start_col:], copy=False)
+        raw_dataset[:, start_col:] = scaled_feats # 对feature进行标准化
+
+        dataset.set_dataset(raw_dataset) # 更新数据集
+\end{lstlisting}
+
+其原理为：对数据集中的每一列feature进行标准化，即对每一列的数据进行如下变换，使其均值为0，标准差为1：
+$$
+    col \leftarrow \frac{col-\mu}{\sigma}
+$$
+
+函数实现的具体步骤为：
+\begin{enumerate}
+    \item 从Dataset类内获取未封装的数据集（实际上就一numpy矩阵）
+    \item 确定feature的起始列。数据集第0列是id。若带有label，则label在第一列，feature从第2列开始；否则feature从第1列开始
+    \item 对feature所在列按列进行标准化，使得每一列的均值为0，标准差为1。
+    \item 用新的feature列更新数据集numpy矩阵，进而更新Dataset类
+\end{enumerate}
+
+其作用为：
+原数据集的输入是没有归一化的，各输入特征由于量纲单位和数量级不同，取值范围差异巨大（至少差4个数量级）。
+这会使得训练过程中的动力学特性非常差，使得训练时间变长，收敛难度加大，特别是容易导致梯度爆炸。
+而加入归一化则可以解决这一问题，使得loss的landscape的性质好很多，更好收敛。（BatchNorm实际上也是这个道理）
 
 
 \subsection{随机数种子}
@@ -286,9 +314,48 @@ Accuracy的计算函数代码如下：
 \section{实验分析及开放题}
 % （10`）开放题：试分析VFL-LR训练流程中潜在的隐私泄露风险，并简要说明可能的保护方式
 
-$\Theta^B x_i^B$的label泄露
+\subsection{潜在的隐私泄露风险}
 
-$\frac{\partial L}{\partial \Theta^B}+R_B$
+潜在的隐私泄露风险有：
+
+\subsubsection{以明文发送的预测结果}
+第二步中，$\Theta^B x_i^B$是以明文发送给A的。
+
+对第三方攻击者而言，这可能造成label泄露，因为预测值可直接由$\mathrm{Sigmoid}(\Theta^B x_i^B)$得到，而它与label有极强的相关性。
+其后果为：首先label的统计信息和预测值的统计信息很相近（毕竟深度学习带有奥卡姆剃刀性，相比于单样本的准确性能更好地保持统计信息的准确性），这首先会泄露。
+更有甚者，每个用户的预测值也可能被套出，比如说若随机数种子被猜出，如此处使用的epoch值种子就很好猜，
+同时若数据集大小等被泄露或用旁信道攻击等方式推出，则每个batch内的样本下标就可直接得到，从而可直接得到每个样本的预测值，进而得到每个用户高置信度的label。
+
+对于Party A而言，假设它是semi-honest的，那么也要防范其从明文的$\Theta^B x_i^B$中推出$x_i^B$的信息。
+毕竟A直接掌握着结果残差$y-\hat{y}$，它可以靠控制发给B的残差，从而控制B的梯度，从而控制B的参数。
+比如一个epoch中，我们令残差中样本i对应的为1，其余样本的为0。这样可以定向地让B的参数向着让样本i的预测值变大的方向更新，
+对于一层的线性网络，此时梯度就为i的输入！
+（这里讨论一下，梯度也可能是i的输入的常数倍，这个常数Party A那边可以推出来（通过对Sigmoid函数反向传播）；
+另外，若B的训练带weight_decay正则化，可以在一段时间内给B很小的残差，使得B的参数的绝对值衰减得很小，再构造残差套信息。这时正则化对梯度的影响就微乎其微了）
+参数更新后，B的参数变为$w - c x_i^B$。（B的学习率可以靠下一个epoch中$y_i$值的变化推出，因此这里$c$的值A可以得知）
+根据下一个epoch内每个样本j的新结果的变化$\Delta_j$，我们就可以列出以下的方程：
+$$
+    \Delta_j =  - c (x_j^B)^T x_i^B
+$$
+那么我们可以得到$(x_j^B)^T x_i^B$的值。
+令$i$也为不同值，我们就可以得到任意$i,j$下$(x_j^B)^T x_i^B$的值的集合。
+此时，记feature维度为$d_f$，若我们拥有了$d_f$个样本的$x^B$值，我们就可以解出所有样本的输入特征。
+否则，我们可以用深度学习的方式，用这些已知的$(x_j^B)^T x_i^B$值去训练一个模型，得到各用户在内积空间的一个embedding，作为用户画像，从而提高下游任务的性能。
+
+那么，要防范上述的攻击，可以采取哪些方式？
+对于第三方攻击者，只需要将$\Theta^B x_i^B$拿公钥加密后发送给A即可。
+对于Party A，我们可以对输入的$x_i^B$加上DP噪声，这样可以一定程度上减少泄露给A的信息量。
+
+
+\subsubsection{mask不严导致的梯度泄露}
+假设Party A是semi-honest的，它可以获取$\frac{\partial L}{\partial \Theta^B}+R_B$的值。
+
+若产生$R_B$的种子已知，（特别是如果B还用的epoch值种子来生成$R_B$），那么A就可以推出$R_B$的值，进而得到B的梯度的值。
+有了梯度值，我们令残差中样本i对应的为1，其余样本的为0，就可以用上述的方法推出B中样本i的输入数据。
+
+另外，若$R_B$的数量级不够大，那么A可以通过构造巨大的残差，使得B的梯度的值的数量级远大于$R_B$，从而推出$\frac{\partial L}{\partial \Theta^B}$的值，进而得到输入数据。
+
+可能的保护方法是：使用更大的$R_B$，并对梯度进行裁剪，即除以一个数使之标准差明显小于$R_B$，类似于DP-SGD中的梯度裁剪。同时，注意时常更换随机数种子，且保证不被A知道。
 
 \appendix
 \section*{附录}
