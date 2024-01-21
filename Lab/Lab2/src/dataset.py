@@ -49,7 +49,7 @@ class Dataset:
         return getattr(self, "_labels")
 
     @property
-    def n_features(self):  # read only
+    def n_features(self):  # read only   # @property装饰器将方法转换为属性，妙极
         return self.features.shape[1]
 
     @property

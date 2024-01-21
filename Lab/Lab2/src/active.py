@@ -12,15 +12,15 @@ class LinearActive:
         self.learning_rate = learning_rate
         self.reg_lambda = 0.01
 
-        self.RESIDUE_PRECISION = 3
-        self.activation = lambda x: 1.0 / (1.0 + np.exp(-x))
+        self.RESIDUE_PRECISION = 3 # 浮点数舍入精度
+        self.activation = lambda x: 1.0 / (1.0 + np.exp(-x)) # 激活函数sigmoid
 
     def _sync_pubkey(self):
-        signal = self.messenger.recv()
-        if signal == "START_SIGNAL":
+        signal = self.messenger.recv() # receive start signal
+        if signal == "START_SIGNAL": 
             print("Training protocol started.")
             print("[ACTIVE] Sending public key to passive party...")
-            self.messenger.send(self.cryptosystem.pub_key)
+            self.messenger.send(self.cryptosystem.pub_key) # send public key
         else:
             raise ValueError("Invalid signal, exit.")
         print("[ACTIVE] Sending public key done!")
@@ -97,7 +97,7 @@ class LinearActive:
 
     def _init_weights(self, size):
         np.random.seed(0)
-        self.params = np.random.normal(0, 1.0, size)
+        self.params = np.random.normal(0, 1.0, size) # 正态分布初始化参数
 
     def _reg_grad(self):
         params = self.params
@@ -118,15 +118,15 @@ class LinearActive:
     def _acc(self, y_true, y_hat):
         # Q3. Compute accuracy
         # -----------------------------------------------------------------
-        acc = ...  # TODO
+        acc = np.mean(y_true == (y_hat >= 0.5)) # -TODO
+        # 布尔数组与0,1数组在绝大多数情况下等价，布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致
         # -----------------------------------------------------------------
-
         return acc
 
     @staticmethod
     def _logloss(y_true, y_hat):
         origin_size = len(y_true)
-        if len(np.unique(y_true)) == 1:
+        if len(np.unique(y_true)) == 1: # 如果y_true中只有一种类别
             if y_true[0] == 0:
                 y_true = np.append(y_true, 1)
                 y_hat = np.append(y_hat, 1.0)
@@ -138,5 +138,5 @@ class LinearActive:
 
     def _reg_loss(self):
         params = self.params
-        reg_loss = 1.0 / 2 * self.reg_lambda * (params**2).sum()
+        reg_loss = 1.0 / 2 * self.reg_lambda * (params**2).sum() # L2正则化
         return reg_loss

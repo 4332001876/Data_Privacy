@@ -3,6 +3,30 @@
 %\documentclass[UTF8]{ctexart}
 \usepackage[heading=true]{ctex}
 
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=Python,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
 \usepackage{fancyhdr} % 页眉页脚
 \usepackage{graphicx}
 \usepackage{amsmath}
@@ -27,7 +51,7 @@
 
 %\firstpageno{1}
 
-\title{Data\_Privacy\_Lab2}
+\title{Data\ Privacy\ Lab2}
 
 \author{罗浩铭\ PB21030838}
 
@@ -50,16 +74,40 @@
 
 % 实验报告要求：说明代码实现方法，简要给出实验结果说明，可以证明有效性即可
 
-\section{Permutation Cipher}
+\section{代码实现}
+\subsection{VFL-LR算法实现}
 % （50`）基于 paillier 同态加密实现 VFL-LR 算法，保护训练中间变量，避免产生隐私泄露。
 %  补全模型训练过程中的前向及反向传播的具体代码，记录 cancer 数据集在训练过程中的loss及acc变化。
 
+\subsubsection{Accuracy计算}
 
+\begin{lstlisting}
+def _acc(self, y_true, y_hat):
+    acc = np.mean(y_true == (y_hat >= 0.5))
+    return acc
+\end{lstlisting}
+
+布尔数组与0,1数组在绝大多数情况下等价，布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致
+
+
+\subsection{sacle函数的原理及作用}
 % （20`）请说明代码中 scale 函数的原理及作用。
 
 
+
+\subsection{随机数种子}
 % （20`）当前代码在每个 epoch 开始时使用 epoch 值作为随机数种子，请说明含义，并实现另一种方式以达到相同的目的。
 
 
+
+\section{实验结果}
+
+
+
+
+\section{实验分析及开放题}
 % （10`）开放题：试分析VFL-LR训练流程中潜在的隐私泄露风险，并简要说明可能的保护方式
+
+
+
 \end{document}

@@ -16,8 +16,8 @@ class LinearPassive:
 
     def _sync_pubkey(self):
         signal = "START_SIGNAL"
-        self.messenger.send(signal)
-        public_key = self.messenger.recv()
+        self.messenger.send(signal) # send start signal
+        public_key = self.messenger.recv() # receive public key
         return public_key
 
     def _gradient(self, enc_residue, batch_idxes):
