@@ -43,12 +43,14 @@ class LinearPassive:
         return reg_grad
 
     def _mask_grad(self, enc_grad):
-        mask = ...  # TODO
-        enc_mask_grad = ...  # TODO
+        shape = enc_grad.shape
+        mask = np.random.normal(0, 10.0, shape)  # 取随机数mask
+        enc_mask = self.cryptosystem.encrypt_vector(mask)  # 加密mask
+        enc_mask_grad = enc_grad + enc_mask  # 对密文进行同态加（这个加法被重载过，对应了Paillier密文的乘法）
         return enc_mask_grad, mask
 
     def _unmask_grad(self, mask_grad, mask):
-        true_grad = ...  # TODO
+        true_grad = mask_grad - mask  # 减去随机数mask得到梯度
         return true_grad
 
     def train(self, trainset):
@@ -91,14 +93,16 @@ class LinearPassive:
 
                 # Q1. Calculate wx and send it to active party
                 # -----------------------------------------------------------------
-                passive_wx = ...  # TODO
+                passive_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算B的预测值
                 self.messenger.send(passive_wx)
                 # -----------------------------------------------------------------
 
                 # Q2. Receive encrypted residue and calculate masked encrypted gradients
                 # -----------------------------------------------------------------
                 enc_residue = self.messenger.recv()
+                # print("enc_residue: ", enc_residue)
                 enc_grad = self._gradient(enc_residue, batch_idxes)
+                # print("enc_grad: ", enc_grad)
                 enc_mask_grad, mask = self._mask_grad(enc_grad)
                 self.messenger.send(enc_mask_grad)
                 # Receive decrypted masked gradient and update model

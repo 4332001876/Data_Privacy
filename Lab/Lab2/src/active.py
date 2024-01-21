@@ -67,9 +67,11 @@ class LinearActive:
 
                 # Q1. Active party calculates y_hat
                 # -----------------------------------------------------------------
-                active_wx = ...  # TODO
+                # self.params: (n_features, )
+                # self.x_train[batch_idxes]: (batch_size, n_features)
+                active_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算A的wx
                 passive_wx = self.messenger.recv()
-                full_wx = ...  # TODO
+                full_wx = active_wx + passive_wx  # （填空）综合A、B的wx（纵向联邦综合结果的关键一步）
                 y_hat = self.activation(full_wx)
                 # -----------------------------------------------------------------
 
@@ -81,11 +83,12 @@ class LinearActive:
 
                 # Q2. Active party helps passive party to calculate gradient
                 # -----------------------------------------------------------------
-                enc_residue = ...  # TODO
+                enc_residue = self.cryptosystem.encrypt_vector(residue)  # （填空）对误差进行加密
                 enc_residue = np.array(enc_residue)
                 self.messenger.send(enc_residue)
+
                 enc_passive_grad = self.messenger.recv()
-                passive_grad = ...  # TODO
+                passive_grad = self.cryptosystem.decrypt_vector(enc_passive_grad)  # （填空）解密得到B的梯度与梯度之和
                 self.messenger.send(passive_grad)
                 # -----------------------------------------------------------------
 
@@ -118,7 +121,7 @@ class LinearActive:
     def _acc(self, y_true, y_hat):
         # Q3. Compute accuracy
         # -----------------------------------------------------------------
-        acc = np.mean(y_true == (y_hat >= 0.5)) # -TODO
+        acc = np.mean(y_true == (y_hat >= 0.5)) # （填空）计算accuracy
         # 布尔数组与0,1数组在绝大多数情况下等价，布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致
         # -----------------------------------------------------------------
         return acc
