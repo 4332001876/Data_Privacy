@@ -4,7 +4,11 @@ from paillier import Paillier
 from comm import ActiveSocket
 from transform import scale
 
+import os
+
 if __name__ == "__main__":
+    os.makedirs("./tmp", exist_ok=True)
+
     abs_path = "./cancer-active-train.csv"
     active_ip = "127.0.0.1"
     active_port = 9999

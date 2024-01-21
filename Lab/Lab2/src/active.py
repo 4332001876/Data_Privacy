@@ -2,6 +2,8 @@ import numpy as np
 from sklearn.metrics import log_loss
 from tqdm import trange
 
+output_file = open("./tmp/output.csv", "w")
+output_file.write("epoch,loss,acc\n")
 
 class LinearActive:
     def __init__(self, cryptosystem, messenger, *, epochs=100, batch_size=100, learning_rate=0.1):
@@ -59,6 +61,9 @@ class LinearActive:
             np.random.seed(epoch)
             np.random.shuffle(all_idxes)
 
+            total_loss = 0.0
+            total_acc = 0.0
+
             for batch in range(n_batches):
                 # Choose batch indexes
                 start = batch * bs
@@ -78,6 +83,9 @@ class LinearActive:
                 loss = self._loss(self.y_train[batch_idxes], y_hat)
                 acc = self._acc(self.y_train[batch_idxes], y_hat)
                 tbar.set_description(f"[loss={loss:.4f}, acc={acc:.4f}]")
+                total_acc += acc * len(batch_idxes)
+                total_loss += loss * len(batch_idxes)
+
                 residue = self.y_train[batch_idxes] - y_hat
                 residue = np.array([round(res, self.RESIDUE_PRECISION) for res in residue])
 
@@ -95,8 +103,13 @@ class LinearActive:
                 # Active party calculates its own gradient and update model
                 active_grad = self._gradient(residue, batch_idxes)
                 self._gradient_descent(self.params, active_grad)
-
+            
+            total_acc /= n_samples
+            total_loss /= n_samples
+            output_file.write(f"{epoch},{total_loss},{total_acc}\n")
+            output_file.flush()
         print("Finish model training.")
+        output_file.close()
 
     def _init_weights(self, size):
         np.random.seed(0)

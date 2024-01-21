@@ -79,6 +79,11 @@
 % （50`）基于 paillier 同态加密实现 VFL-LR 算法，保护训练中间变量，避免产生隐私泄露。
 %  补全模型训练过程中的前向及反向传播的具体代码，记录 cancer 数据集在训练过程中的loss及acc变化。
 
+\subsubsection{Party A(Active Party)的前向传播}
+
+
+
+
 \subsubsection{Accuracy计算}
 
 \begin{lstlisting}
@@ -88,6 +93,8 @@ def _acc(self, y_true, y_hat):
 \end{lstlisting}
 
 布尔数组与0,1数组在绝大多数情况下等价，布尔数组与0,1数组的比较、布尔数组的求平均值等操作中布尔数组的行为与0,1数组一致
+
+
 
 
 \subsection{sacle函数的原理及作用}
@@ -110,6 +117,85 @@ def _acc(self, y_true, y_hat):
 \section{实验分析及开放题}
 % （10`）开放题：试分析VFL-LR训练流程中潜在的隐私泄露风险，并简要说明可能的保护方式
 
+\appendix
+\section*{附录}
 
+\section{Party A (Active Party)对一个batch进行处理的具体实现}
+
+\begin{lstlisting}
+total_loss = 0.0
+total_acc = 0.0
+
+for batch in range(n_batches):
+    # Choose batch indexes
+    start = batch * bs
+    end = len(all_idxes) if batch == n_batches - 1 else (batch + 1) * bs
+    batch_idxes = all_idxes[start:end]
+
+    # Q1. Active party calculates y_hat
+    # -----------------------------------------------------------------
+    # self.params: (n_features, )
+    # self.x_train[batch_idxes]: (batch_size, n_features)
+    active_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算A的wx
+    passive_wx = self.messenger.recv()
+    full_wx = active_wx + passive_wx  # （填空）综合A、B的wx（纵向联邦综合结果的关键一步）
+    y_hat = self.activation(full_wx)
+    # -----------------------------------------------------------------
+
+    loss = self._loss(self.y_train[batch_idxes], y_hat)
+    acc = self._acc(self.y_train[batch_idxes], y_hat)
+    tbar.set_description(f"[loss={loss:.4f}, acc={acc:.4f}]")
+    total_acc += acc * len(batch_idxes)
+    total_loss += loss * len(batch_idxes)
+
+    residue = self.y_train[batch_idxes] - y_hat
+    residue = np.array([round(res, self.RESIDUE_PRECISION) for res in residue])
+
+    # Q2. Active party helps passive party to calculate gradient
+    # -----------------------------------------------------------------
+    enc_residue = self.cryptosystem.encrypt_vector(residue)  # （填空）对误差进行加密
+    enc_residue = np.array(enc_residue)
+    self.messenger.send(enc_residue)
+
+    enc_passive_grad = self.messenger.recv()
+    passive_grad = self.cryptosystem.decrypt_vector(enc_passive_grad)  # （填空）解密得到B的梯度与梯度之和
+    self.messenger.send(passive_grad)
+    # -----------------------------------------------------------------
+
+    # Active party calculates its own gradient and update model
+    active_grad = self._gradient(residue, batch_idxes)
+    self._gradient_descent(self.params, active_grad)
+\end{lstlisting}
+
+\section{Party B (Passive Party)对一个batch进行处理的具体实现}
+
+\begin{lstlisting}
+for batch in range(n_batches):
+    # Choose batch indexes
+    start = batch * bs
+    end = len(all_idxes) if batch == n_batches - 1 else (batch + 1) * bs
+    batch_idxes = all_idxes[start:end]
+
+    # Q1. Calculate wx and send it to active party
+    # -----------------------------------------------------------------
+    passive_wx = np.dot(self.x_train[batch_idxes], self.params)  # （填空）计算B的预测值
+    self.messenger.send(passive_wx)
+    # -----------------------------------------------------------------
+
+    # Q2. Receive encrypted residue and calculate masked encrypted gradients
+    # -----------------------------------------------------------------
+    enc_residue = self.messenger.recv()
+    # print("enc_residue: ", enc_residue)
+    enc_grad = self._gradient(enc_residue, batch_idxes)
+    # print("enc_grad: ", enc_grad)
+    enc_mask_grad, mask = self._mask_grad(enc_grad)
+    self.messenger.send(enc_mask_grad)
+    # Receive decrypted masked gradient and update model
+    mask_grad = self.messenger.recv()
+    true_grad = self._unmask_grad(mask_grad, mask)
+    # -----------------------------------------------------------------
+
+    self._gradient_descent(self.params, true_grad)
+\end{lstlisting}
 
 \end{document}
